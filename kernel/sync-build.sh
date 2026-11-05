@@ -9,17 +9,21 @@ git clone --depth 1 https://gitlab.archlinux.org/archlinux/packaging/packages/li
 cd "$W/src"
 # 1. Đổi tên gói để không đè kernel chính thức
 sed -i -e 's/^pkgbase=.*/pkgbase=linux-deftos/' PKGBUILD
-# 2. Áp fragment cấu hình DeftOS vào config của Arch
+# 2. Giải nén + prepare() (chưa build) để có mã nguồn kernel và .config
+makepkg -o --noconfirm --skippgpcheck
+CFG=$(find src -maxdepth 2 -name .config | head -1)
+SRCDIR=$(dirname "$CFG")
+# 3. Áp fragment DeftOS vào .config (đúng cây mã nguồn kernel)
 while IFS= read -r line; do
   [[ -z "$line" || "$line" == \#* ]] && continue
   opt=${line%%=*}; val=${line#*=}
   case "$val" in
-    y) scripts/config --file config --enable "$opt" ;;
-    n) scripts/config --file config --disable "$opt" ;;
+    y) "$SRCDIR/scripts/config" --file "$CFG" --enable "$opt" ;;
+    n) "$SRCDIR/scripts/config" --file "$CFG" --disable "$opt" ;;
     *) echo "bỏ qua: $line" ;;
   esac
 done < "$ROOT/kernel/deftos.fragment"
-# 3. Build (dùng config đã sửa)
-makepkg -sf --noconfirm --skippgpcheck
+# 4. Build dùng mã nguồn đã sửa (-e: không giải nén lại)
+makepkg -e --noconfirm --skippgpcheck
 mkdir -p "$ROOT/kernel/out" && cp ./*.pkg.tar.zst "$ROOT/kernel/out/"
 ls -lh "$ROOT/kernel/out/"
