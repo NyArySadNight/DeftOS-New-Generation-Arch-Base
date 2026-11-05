@@ -1,0 +1,12 @@
+# DeftOS: thay đổi cấu hình kernel trên nền cấu hình Arch (áp bằng scripts/config)
+# Chống panic/treo
+PANIC_ON_OOPS=y
+PANIC_TIMEOUT=10
+# Phản hồi/độ trễ desktop
+HZ_1000=y
+PREEMPT_DYNAMIC=y
+# Bộ nhớ
+LRU_GEN=y
+LRU_GEN_ENABLED=y
+# Mạng
+TCP_CONG_BBR=y

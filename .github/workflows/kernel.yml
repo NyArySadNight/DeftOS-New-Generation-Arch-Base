@@ -1,0 +1,41 @@
+name: Build DeftOS kernel (Arch)
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  push:
+    paths: ["kernel/**", ".github/workflows/kernel.yml"]
+  workflow_dispatch:
+
+jobs:
+  kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync upstream and build
+        run: |
+          docker run --privileged --rm -v "$PWD:/src" -w /src archlinux:latest bash -c "
+            pacman -Syu --noconfirm base-devel git bc cpio pahole python &&
+            useradd -m builder && chown -R builder /src &&
+            su builder -c 'cd /src && bash kernel/sync-build.sh'
+          "
+
+      - name: Upload kernel packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: deftos-kernel-pkgs
+          path: kernel/out/*.pkg.tar.zst
+          retention-days: 7
