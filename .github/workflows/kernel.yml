@@ -28,7 +28,7 @@ jobs:
       - name: Sync upstream and build
         run: |
           docker run --privileged --rm -v "$PWD:/src" -w /src archlinux:latest bash -c "
-            pacman -Syu --noconfirm base-devel git bc cpio pahole python &&
+            pacman -Syu --noconfirm base-devel git bc cpio gettext libelf pahole perl python tar xz zstd openssl &&
             useradd -m builder && chown -R builder /src &&
             su builder -c 'cd /src && bash kernel/sync-build.sh'
           "
