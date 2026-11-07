@@ -39,3 +39,15 @@ jobs:
           name: deftos-kernel-pkgs
           path: kernel/out/*.pkg.tar.zst
           retention-days: 7
+
+      - name: Publish pacman repo (release kernel-latest)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd kernel/out
+          docker run --rm -v "$PWD:/out" -w /out archlinux:latest bash -c \
+            "pacman -Sy --noconfirm pacman-contrib >/dev/null && repo-add deftos.db.tar.gz *.pkg.tar.zst"
+          gh release view kernel-latest >/dev/null 2>&1 || gh release create kernel-latest --title "DeftOS kernel repo" --notes "Auto-built linux-deftos packages" --prerelease
+          gh release upload kernel-latest --clobber *.pkg.tar.zst deftos.db.tar.gz deftos.files.tar.gz
+          rm -f deftos.db deftos.files
