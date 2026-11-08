@@ -44,10 +44,19 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
+          DEFTOS_GPG_KEY: ${{ secrets.DEFTOS_GPG_KEY_B64 }}
         run: |
           cd kernel/out
-          docker run --rm -v "$PWD:/out" -w /out archlinux:latest bash -c \
-            "pacman -Sy --noconfirm pacman-contrib >/dev/null && repo-add deftos.db.tar.gz *.pkg.tar.zst"
+          printf '%s' "$DEFTOS_GPG_KEY" | base64 -d > "$RUNNER_TEMP/deftos.key"
+          docker run --rm -v "$PWD:/out" -v "$RUNNER_TEMP/deftos.key:/key.asc:ro" -w /out archlinux:latest bash -c "
+            pacman -Sy --noconfirm gnupg pacman-contrib >/dev/null &&
+            export GNUPGHOME=/tmp/gpg && mkdir -m700 \$GNUPGHOME &&
+            gpg --batch --import /key.asc &&
+            KID=\$(gpg --list-keys --with-colons | awk -F: '/^fpr/{print \$10; exit}') &&
+            for p in *.pkg.tar.zst; do gpg --batch --yes --detach-sign --no-armor -u \$KID \"\$p\"; done &&
+            repo-add --sign --key \$KID deftos.db.tar.gz *.pkg.tar.zst
+          "
+          rm -f "$RUNNER_TEMP/deftos.key"
           gh release view kernel-latest >/dev/null 2>&1 || gh release create kernel-latest --title "DeftOS kernel repo" --notes "Auto-built linux-deftos packages" --prerelease
-          gh release upload kernel-latest --clobber *.pkg.tar.zst deftos.db.tar.gz deftos.files.tar.gz
+          gh release upload kernel-latest --clobber *.pkg.tar.zst *.pkg.tar.zst.sig deftos.db.tar.gz deftos.db.tar.gz.sig deftos.files.tar.gz deftos.files.tar.gz.sig
           rm -f deftos.db deftos.files

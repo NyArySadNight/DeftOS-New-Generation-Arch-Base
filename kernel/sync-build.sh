@@ -12,7 +12,7 @@ sed -i -e 's/^pkgbase=.*/pkgbase=linux-deftos/' PKGBUILD
 # Bỏ target tài liệu (cần texlive/sphinx nặng, không cần cho kernel)
 sed -i -e 's/\bhtmldocs\b//g' -e 's/\bpdfdocs\b//g' -e 's/\bmandocs\b//g' PKGBUILD
 # 2. Giải nén + prepare() (chưa build) để có mã nguồn kernel và .config
-makepkg -o -d --noconfirm --skippgpcheck
+for i in 1 2 3; do makepkg -o -d --noconfirm --skippgpcheck && break; echo "retry $i"; sleep 30; done
 # Bỏ -Werror của tools/ (cảnh báo format-security làm hỏng bpf)
 find src/*/tools -name 'Makefile*' -o -name '*.mk' 2>/dev/null | xargs -r sed -i -e 's/-Werror=format-security//g' -e 's/ -Werror//g'
 CFG=$(find src -maxdepth 2 -name .config | head -1)
