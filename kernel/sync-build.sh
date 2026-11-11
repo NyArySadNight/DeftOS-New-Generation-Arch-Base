@@ -30,6 +30,8 @@ done < "$ROOT/kernel/deftos.fragment"
 # 3b. Dựng các công cụ host (archscripts) tuần tự để tránh lỗi race fixdep khi -j
 make -C "$SRCDIR" olddefconfig >/dev/null
 make -C "$SRCDIR" -j1 archscripts
+# Chuẩn bị đầy đủ cấu hình/headers tuần tự, tránh race SYNC auto.conf khi build song song
+make -C "$SRCDIR" -j1 prepare
 # 4. Build dùng mã nguồn đã sửa (-e: không giải nén lại)
 makepkg -e -d --noconfirm --skippgpcheck
 mkdir -p "$ROOT/kernel/out" && cp ./*.pkg.tar.zst "$ROOT/kernel/out/"
