@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# DeftOS-Install: chạy archinstall với cấu hình DeftOS.
+# Cấu hình lấy từ repo này trên GitHub; không có mạng thì dùng bản đi kèm ISO.
+set -euo pipefail
+
+REPO_RAW="${DEFTOS_REPO_RAW:-https://raw.githubusercontent.com/NyArySadNight/DeftOS-New-Generation-Arch-Base/main}"
+LOCAL_CFG="${DEFTOS_LOCAL_CONFIG:-/etc/deftos/archinstall.json}"
+
+if ! command -v archinstall >/dev/null 2>&1; then
+    echo "[deftinstall] Thiếu archinstall. Cài bằng: pacman -S archinstall" >&2
+    exit 1
+fi
+
+CFG=$(mktemp /tmp/deftinstall.XXXXXX.json)
+trap 'rm -f "$CFG"' EXIT
+
+if curl -fsSL --max-time 20 "$REPO_RAW/installer/archinstall.json" -o "$CFG"; then
+    echo "[deftinstall] Đã tải cấu hình từ repo DeftOS."
+elif [[ -f "$LOCAL_CFG" ]]; then
+    echo "[deftinstall] Không tải được từ repo, dùng cấu hình đi kèm ISO."
+    cp "$LOCAL_CFG" "$CFG"
+else
+    echo "[deftinstall] Không có cấu hình nào để dùng." >&2
+    exit 1
+fi
+
+python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$CFG" || { echo "[deftinstall] Cấu hình JSON lỗi." >&2; exit 1; }
+
+archinstall --config "$CFG" "$@"

@@ -1,0 +1,19 @@
+{
+  "additional-repositories": ["multilib"],
+  "archinstall-language": "English",
+  "audio_config": { "audio": "pipewire" },
+  "bootloader": "Grub",
+  "hostname": "deftos",
+  "kernels": ["linux-deftos"],
+  "locale_config": { "kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US" },
+  "network_config": { "type": "nm" },
+  "ntp": true,
+  "profile_config": {
+    "gfx_driver": "All open-source",
+    "greeter": "lightdm-slick-greeter",
+    "profile": { "details": ["Cinnamon"], "main": "Desktop" }
+  },
+  "swap": true,
+  "timezone": "Asia/Ho_Chi_Minh",
+  "version": "2.7.0"
+}
