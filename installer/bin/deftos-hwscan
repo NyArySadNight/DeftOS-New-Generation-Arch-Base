@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# deftos-hwscan: đọc phần cứng thật của máy đang chạy và ghi ra file JS
+# (window.DEFTOS_HW = {...}) để trang installer HUD đọc được qua <script src>.
+# Chỉ đọc, không thay đổi gì trên máy. Thiếu công cụ nào thì ghi "unknown", không dừng.
+set -uo pipefail
+OUT="${1:-hw.js}"
+have() { command -v "$1" >/dev/null 2>&1; }
+
+cpu_name=$(lscpu 2>/dev/null | awk -F: '/Model name/{sub(/^ +/,"",$2); print $2; exit}')
+cpu_cores=$(lscpu 2>/dev/null | awk -F: '/^Core\(s\) per socket/{c=$2} /^Socket\(s\)/{s=$2} END{gsub(/ /,"",c); gsub(/ /,"",s); if(c&&s) print c*s}')
+cpu_threads=$(nproc 2>/dev/null)
+cpu_flags=$(lscpu 2>/dev/null | awk -F: '/Flags/{print $2; exit}')
+v3=no; for f in avx2 bmi2 fma; do echo "$cpu_flags" | grep -qw "$f" || v3=no; done
+echo "$cpu_flags" | grep -qw avx2 && echo "$cpu_flags" | grep -qw bmi2 && echo "$cpu_flags" | grep -qw fma && v3=yes
+
+gpus=""
+if have lspci; then
+  gpus=$(lspci -mm 2>/dev/null | awk -F'"' '/VGA|3D|Display/{print $4" "$6}' | paste -sd'|' -)
+fi
+
+ram_gb=$(awk '/MemTotal/{printf "%.0f", $2/1048576}' /proc/meminfo 2>/dev/null)
+ram_type=unknown
+if have dmidecode && [ "$(id -u)" = 0 ]; then
+  ram_type=$(dmidecode -t memory 2>/dev/null | awk -F': ' '/^\tType:/ && $2!="Unknown"{print $2; exit}')
+fi
+
+firmware=BIOS; [ -d /sys/firmware/efi ] && firmware=UEFI
+secure_boot=unknown
+if have mokutil; then secure_boot=$(mokutil --sb-state 2>/dev/null | head -1); fi
+
+virt=$(systemd-detect-virt 2>/dev/null || echo none)
+product=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
+vendor=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null)
+
+disks=""
+if have lsblk; then
+  disks=$(lsblk -dn -o NAME,SIZE,MODEL,TYPE 2>/dev/null | awk '$4=="disk"{m=""; for(i=3;i<NF;i++) m=m $i " "; sub(/ $/,"",m); print "/dev/"$1" "$2" "m}' | paste -sd'|' -)
+fi
+
+nets=""
+if have ip; then
+  nets=$(ip -br link 2>/dev/null | awk '$1!="lo"{print $1" "$2}' | paste -sd'|' -)
+fi
+
+python3 - "$OUT" "$cpu_name" "$cpu_cores" "$cpu_threads" "$v3" "$gpus" "$ram_gb" "$ram_type" "$firmware" "$secure_boot" "$virt" "$vendor" "$product" "$disks" "$nets" <<'PY'
+import json, sys
+(out, cpu, cores, threads, v3, gpus, ram, ram_type, fw, sb, virt, vendor, product, disks, nets) = sys.argv[1:]
+def s(x, d="unknown"): return x.strip() if x and x.strip() else d
+gpu_list = [g.strip() for g in gpus.split("|") if g.strip()] or ["unknown"]
+disk_list = [d.strip() for d in disks.split("|") if d.strip()] or ["unknown"]
+net_list = [n.strip() for n in nets.split("|") if n.strip()] or ["unknown"]
+hw = {
+  "cpu": {"name": s(cpu), "detail": f"{s(cores)} cores · {s(threads)} threads · x86-64-v3: {v3}"},
+  "gpu": {"name": gpu_list[0], "detail": "; ".join(gpu_list[1:]) or "Detected GPU"},
+  "ram": {"name": f"{s(ram)} GB" if ram != "" else "unknown", "detail": f"Type: {s(ram_type)}"},
+  "disk": {"name": disk_list[0], "detail": "; ".join(disk_list[1:]) or "Detected disks"},
+  "firmware": {"name": fw, "detail": f"Secure Boot: {s(sb)}"},
+  "net": {"name": net_list[0], "detail": "; ".join(net_list[1:]) or "Detected interfaces"},
+  "virt": {"name": "Virtual machine" if virt != "none" else "Bare metal", "detail": f"{s(vendor)} {s(product)}".strip() or s(virt)},
+  "all": {"gpus": gpu_list, "disks": disk_list, "nets": net_list},
+}
+with open(out, "w", encoding="utf-8") as f:
+    f.write("window.DEFTOS_HW = " + json.dumps(hw, ensure_ascii=False, indent=2) + ";\n")
+print(f"wrote {out}")
+PY
