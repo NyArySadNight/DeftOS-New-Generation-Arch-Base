@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# deftos-hwscan: đọc phần cứng thật của máy đang chạy và ghi ra file JS
-# (window.DEFTOS_HW = {...}) để trang installer HUD đọc được qua <script src>.
-# Chỉ đọc, không thay đổi gì trên máy. Thiếu công cụ nào thì ghi "unknown", không dừng.
+# deftos-hwscan: reads the real hardware of the running machine and writes a JS file
+# (window.DEFTOS_HW = {...}) that the installer HUD page loads via <script src>.
+# Read-only: it changes nothing on the machine. Missing tools are reported as "unknown"; the script never stops early.
 set -uo pipefail
 OUT="${1:-hw.js}"
 have() { command -v "$1" >/dev/null 2>&1; }
