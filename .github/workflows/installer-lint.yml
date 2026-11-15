@@ -13,6 +13,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: ShellCheck
-        run: shellcheck installer/bin/deftinstall
+        run: shellcheck installer/bin/deftinstall installer/bin/deftinstall-ui installer/bin/deftos-hwscan
       - name: JSON
         run: python3 -m json.tool installer/archinstall.json >/dev/null && echo "json ok"
+      - name: UI script syntax
+        run: |
+          python3 - <<'PY'
+          import re, pathlib, subprocess
+          html = pathlib.Path("installer/ui/index.html").read_text(encoding="utf-8")
+          js = re.findall(r"<script>\n\(function.*?</script>", html, re.S)[0]
+          js = js.replace("<script>", "").replace("</script>", "")
+          pathlib.Path("/tmp/ui.js").write_text(js, encoding="utf-8")
+          subprocess.run(["node", "--check", "/tmp/ui.js"], check=True)
+          PY

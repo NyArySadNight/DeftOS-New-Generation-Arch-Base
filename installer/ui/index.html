@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>DeftOS Installer HUD</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600&family=Share+Tech+Mono&display=swap">
+<style>
+:root {
+  --bg: #05090b;
+  --line: rgba(74, 255, 210, 0.22);
+  --fg: #c9fff2;
+  --dim: #4f7f78;
+  --accent: #3dffc4;
+  --cyan: #41d6ff;
+  --warn: #ffb347;
+  --crit: #ff4d6d;
+  --field: #03090c;
+  --display: "Rajdhani", "Arial Narrow", sans-serif;
+  --mono: "Share Tech Mono", ui-monospace, "Courier New", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background:
+    radial-gradient(circle at 20% 10%, rgba(176, 77, 255, 0.10), transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(61, 255, 196, 0.08), transparent 45%),
+    var(--bg);
+  color: var(--fg);
+  font: 14px/1.45 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 12px;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(0, 340px); }
+.top { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.brand { font: 600 24px/1 var(--display); letter-spacing: .18em; color: var(--accent); text-shadow: 0 0 12px rgba(61,255,196,.5); }
+.brand small { font: 12px var(--mono); color: var(--dim); letter-spacing: .08em; margin-left: 10px; }
+.panel { position: relative; background: linear-gradient(180deg, rgba(7,20,26,.92), rgba(5,12,15,.92));
+  border: 1px solid var(--line); border-radius: 4px; padding: 14px; min-width: 0; }
+.panel::before, .panel::after { content: ""; position: absolute; width: 14px; height: 14px; border: 1px solid var(--accent); pointer-events: none; }
+.panel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.panel::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.label { font: 12px var(--mono); letter-spacing: .14em; color: var(--dim); text-transform: uppercase; display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.label b { color: var(--accent); font-weight: normal; }
+
+.rail { display: grid; gap: 4px; align-content: start; }
+.step { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid transparent; background: none; color: var(--dim); font: 14px var(--mono); text-align: left; cursor: pointer; }
+.step .n { width: 24px; height: 24px; border: 1px solid currentColor; display: grid; place-items: center; font: 600 13px var(--display); }
+.step.done { color: var(--fg); }
+.step.done .n { background: rgba(61,255,196,.15); color: var(--accent); }
+.step.active { color: var(--accent); border-color: var(--line); background: rgba(61,255,196,.06); }
+.step:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.title { font: 600 26px/1.1 var(--display); letter-spacing: .08em; text-transform: uppercase; margin: 0 0 4px; color: var(--fg); text-wrap: balance; }
+.hint { color: var(--dim); margin: 0 0 16px; font-size: 13px; }
+.grid2 { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+label.f { display: grid; gap: 6px; font-size: 12px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; min-width: 0; }
+input, select { background: var(--field); color: var(--fg); border: 1px solid var(--line); padding: 10px 12px; font: 15px var(--mono); border-radius: 2px; width: 100%; min-width: 0; }
+input:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.opts { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-top: 6px; }
+.opt { position: relative; border: 1px solid var(--line); padding: 12px; cursor: pointer; background: var(--field); display: grid; gap: 4px; min-width: 0; }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt .t { font: 600 17px/1.1 var(--display); letter-spacing: .06em; text-transform: uppercase; }
+.opt .s { color: var(--dim); font-size: 12px; overflow-wrap: anywhere; }
+.opt:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 12px rgba(61,255,196,.25) inset; background: rgba(61,255,196,.06); }
+.opt:has(input:focus-visible) { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.tag { justify-self: start; font-size: 11px; letter-spacing: .12em; padding: 2px 8px; border: 1px solid var(--warn); color: var(--warn); border-radius: 99px; }
+.ok { color: var(--accent); } .warn { color: var(--warn); } .off { color: var(--dim); }
+
+/* Scan page */
+.scan { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.hw { border: 1px solid var(--line); padding: 10px; background: var(--field); display: grid; gap: 4px; min-width: 0; }
+.hw .k { font-size: 11px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; }
+.hw .v { font: 600 17px/1.2 var(--display); letter-spacing: .04em; overflow-wrap: anywhere; }
+.hw .d { font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
+.bar { height: 4px; background: rgba(79,127,120,.25); position: relative; margin-top: 12px; }
+.bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--cyan), var(--accent)); transition: width .4s ease; }
+
+/* Form */
+.actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+button.btn { font: 600 15px var(--display); letter-spacing: .14em; text-transform: uppercase; padding: 10px 18px; background: transparent; color: var(--accent); border: 1px solid var(--accent); cursor: pointer; }
+button.btn.ghost { color: var(--dim); border-color: var(--line); }
+button.btn:hover { background: rgba(61,255,196,.1); }
+button.btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+button.btn:disabled { opacity: .4; cursor: not-allowed; }
+.err { color: var(--warn); font-size: 13px; min-height: 1.2em; margin-top: 8px; }
+.note { color: var(--dim); font-size: 12px; margin-top: 10px; }
+
+/* Preview */
+.json { background: var(--field); border: 1px solid var(--line); padding: 10px; font: 12px/1.5 var(--mono); color: var(--cyan); white-space: pre; overflow: auto; max-height: 420px; min-width: 0; }
+.cmd { margin-top: 10px; font: 12px var(--mono); color: var(--dim); overflow-wrap: anywhere; }
+.cmd code { color: var(--accent); }
+
+@media (max-width: 960px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); }
+  .rail { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">DEFTOS<small>INSTALLER // DEMO</small></div>
+    <div class="label" style="margin:0"><span>Step</span><b id="stepNo">1 / 1</b></div>
+  </header>
+
+  <nav class="panel rail" aria-label="Installer steps" id="rail"></nav>
+
+  <main class="panel" aria-live="polite">
+    <div class="label"><span id="stepName"></span><b id="stepState">EDITING</b></div>
+    <h1 class="title" id="stepTitle"></h1>
+    <p class="hint" id="stepHint"></p>
+    <form id="form" novalidate>
+      <div id="fields"></div>
+      <div class="err" id="err" role="alert"></div>
+      <div class="actions">
+        <button type="button" class="btn ghost" id="back">Back</button>
+        <button type="button" class="btn" id="next">Next</button>
+      </div>
+    </form>
+  </main>
+
+  <aside class="panel" aria-label="Config preview">
+    <div class="label"><span>archinstall.json</span><b id="valid">VALID</b></div>
+    <pre class="json" id="json" tabindex="0"></pre>
+    <button type="button" class="btn ghost" id="copy" style="margin-top:10px;width:100%">Copy config</button>
+    <div class="cmd">After saving the file: <code>sudo deftinstall --config archinstall.json</code></div>
+    <div class="note">This page only generates the configuration. The real install runs in the live ISO, not in the browser.</div>
+  </aside>
+</div>
+
+<!-- Live ISO: deftos-hwscan writes hw.js next to this page. Missing file = demo data. -->
+<script src="hw.js"></script>
+<script>
+(function () {
+  // Hardware data: the live ISO daemon can inject real results via window.DEFTOS_HW.
+  // Without it, the scan shows demo values so the layout can be reviewed.
+  const DEMO_HW = {
+    cpu: { name: "AMD Ryzen 7 7445HS", detail: "8 cores · 16 threads · x86-64-v3" },
+    gpu: { name: "AMD Radeon 780M", detail: "iGPU · suggested driver: amdgpu + mesa" },
+    ram: { name: "16 GB", detail: "DDR5 · 1 stick" },
+    disk: { name: "NVMe 512 GB", detail: "/dev/nvme0n1 · no partition table" },
+    firmware: { name: "UEFI", detail: "Secure Boot: off" },
+    net: { name: "Wi-Fi + Ethernet", detail: "wlan0 · eth0 · connected" },
+    virt: { name: "Bare metal", detail: "Physical machine, no hypervisor" },
+  };
+  const HW = window.DEFTOS_HW || DEMO_HW;
+  const IS_DEMO = !window.DEFTOS_HW;
+
+  const STEPS = [
+    { id: "welcome", name: "Welcome", title: "Welcome to DeftOS", hint: "Choose language and timezone. The rest of the setup detects hardware automatically." },
+    { id: "scan", name: "Hardware scan", title: "Scanning this machine", hint: "Scanning CPU, GPU, RAM, disks, firmware and network. Nothing on this machine is changed." },
+    { id: "id", name: "Identity", title: "Name this machine", hint: "Hostname and the first user account. Use lowercase, no spaces." },
+    { id: "disk", name: "Disk", title: "Choose where DeftOS lives", hint: "The selected disk will be erased. Check carefully before continuing." },
+    { id: "drivers", name: "Drivers", title: "Graphics driver", hint: "Recommended driver for the detected GPU. Change it only if you know you need something else." },
+    { id: "desk", name: "Desktop", title: "Pick a desktop", hint: "Cinnamon is the default. Install other WMs later if needed." },
+    { id: "kern", name: "Kernel", title: "Kernel and fallback", hint: "linux-deftos is the DeftOS kernel. Keep LTS as a fallback in case of boot failure." },
+    { id: "extras", name: "Extras", title: "Snapshots and tools", hint: "Automatic snapshots before upgrades need btrfs. You can skip this step." },
+    { id: "rev", name: "Review", title: "Check before writing", hint: "Check the configuration, then copy it into archinstall.json." },
+  ];
+  // archName must match a language name in archinstall's translations; locale is the system locale.
+  const LANGS = [
+    ["en_US", "English", "English"], ["vi_VN", "Vietnamese", "Tiếng Việt"], ["zh_CN", "Chinese", "简体中文"],
+    ["zh_TW", "Chinese (Traditional)", "繁體中文"], ["ja_JP", "Japanese", "日本語"], ["ko_KR", "Korean", "한국어"],
+    ["th_TH", "Thai", "ไทย"], ["id_ID", "Indonesian", "Bahasa Indonesia"], ["ms_MY", "Malay", "Bahasa Melayu"],
+    ["hi_IN", "Hindi", "हिन्दी"], ["bn_BD", "Bengali", "বাংলা"], ["ar_SA", "Arabic", "العربية"],
+    ["fa_IR", "Persian", "فارسی"], ["he_IL", "Hebrew", "עברית"], ["tr_TR", "Turkish", "Türkçe"],
+    ["ru_RU", "Russian", "Русский"], ["uk_UA", "Ukrainian", "Українська"], ["pl_PL", "Polish", "Polski"],
+    ["cs_CZ", "Czech", "Čeština"], ["sk_SK", "Slovak", "Slovenčina"], ["hu_HU", "Hungarian", "Magyar"],
+    ["ro_RO", "Romanian", "Română"], ["bg_BG", "Bulgarian", "Български"], ["el_GR", "Greek", "Ελληνικά"],
+    ["de_DE", "German", "Deutsch"], ["fr_FR", "French", "Français"], ["es_ES", "Spanish", "Español"],
+    ["it_IT", "Italian", "Italiano"], ["pt_BR", "Portuguese (Brazil)", "Português (Brasil)"],
+    ["pt_PT", "Portuguese", "Português"], ["nl_NL", "Dutch", "Nederlands"], ["sv_SE", "Swedish", "Svenska"],
+    ["da_DK", "Danish", "Dansk"], ["nb_NO", "Norwegian", "Norsk"], ["fi_FI", "Finnish", "Suomi"],
+    ["is_IS", "Icelandic", "Íslenska"], ["et_EE", "Estonian", "Eesti"], ["lv_LV", "Latvian", "Latviešu"],
+    ["lt_LT", "Lithuanian", "Lietuvių"], ["sr_RS", "Serbian", "Српски"], ["hr_HR", "Croatian", "Hrvatski"],
+    ["sl_SI", "Slovenian", "Slovenščina"], ["ca_ES", "Catalan", "Català"], ["eu_ES", "Basque", "Euskara"],
+    ["ga_IE", "Irish", "Gaeilge"], ["cy_GB", "Welsh", "Cymraeg"], ["sw_KE", "Swahili", "Kiswahili"],
+    ["af_ZA", "Afrikaans", "Afrikaans"], ["am_ET", "Amharic", "አማርኛ"], ["ta_IN", "Tamil", "தமிழ்"],
+    ["te_IN", "Telugu", "తెలుగు"], ["ur_PK", "Urdu", "اردو"], ["ne_NP", "Nepali", "नेपाली"],
+    ["my_MM", "Burmese", "မြန်မာ"], ["km_KH", "Khmer", "ខ្មែរ"], ["lo_LA", "Lao", "ລາວ"],
+    ["mn_MN", "Mongolian", "Монгол"], ["kk_KZ", "Kazakh", "Қазақ"], ["ka_GE", "Georgian", "ქართული"],
+    ["hy_AM", "Armenian", "Հայերեն"], ["az_AZ", "Azerbaijani", "Azərbaycan"], ["fil_PH", "Filipino", "Filipino"],
+  ];
+  // IANA timezone names, grouped by region (values go straight into archinstall's timezone field).
+  const TZ_GROUPS = [
+    ["UTC", ["UTC"]],
+    ["Asia", ["Asia/Ho_Chi_Minh", "Asia/Bangkok", "Asia/Jakarta", "Asia/Manila", "Asia/Kuala_Lumpur", "Asia/Singapore",
+      "Asia/Phnom_Penh", "Asia/Vientiane", "Asia/Yangon", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Taipei", "Asia/Seoul",
+      "Asia/Tokyo", "Asia/Kolkata", "Asia/Dhaka", "Asia/Karachi", "Asia/Kathmandu", "Asia/Dubai", "Asia/Riyadh",
+      "Asia/Tehran", "Asia/Jerusalem", "Asia/Almaty", "Asia/Tashkent", "Asia/Yekaterinburg", "Asia/Novosibirsk",
+      "Asia/Vladivostok", "Asia/Ulaanbaatar"]],
+    ["Europe", ["Europe/London", "Europe/Dublin", "Europe/Lisbon", "Europe/Madrid", "Europe/Paris", "Europe/Berlin",
+      "Europe/Amsterdam", "Europe/Brussels", "Europe/Rome", "Europe/Zurich", "Europe/Vienna", "Europe/Stockholm",
+      "Europe/Oslo", "Europe/Copenhagen", "Europe/Helsinki", "Europe/Warsaw", "Europe/Prague", "Europe/Budapest",
+      "Europe/Athens", "Europe/Bucharest", "Europe/Sofia", "Europe/Kyiv", "Europe/Istanbul", "Europe/Moscow",
+      "Europe/Minsk", "Europe/Riga", "Europe/Vilnius", "Europe/Tallinn", "Europe/Belgrade"]],
+    ["Americas", ["America/Anchorage", "America/Los_Angeles", "America/Vancouver", "America/Denver", "America/Phoenix",
+      "America/Chicago", "America/Mexico_City", "America/New_York", "America/Toronto", "America/Bogota", "America/Lima",
+      "America/Caracas", "America/Santiago", "America/Argentina/Buenos_Aires", "America/Sao_Paulo", "America/Halifax",
+      "America/St_Johns", "America/Havana", "America/Panama", "America/Montevideo", "Pacific/Honolulu"]],
+    ["Africa", ["Africa/Cairo", "Africa/Johannesburg", "Africa/Lagos", "Africa/Nairobi", "Africa/Casablanca",
+      "Africa/Algiers", "Africa/Accra", "Africa/Addis_Ababa"]],
+    ["Oceania", ["Australia/Perth", "Australia/Adelaide", "Australia/Darwin", "Australia/Brisbane", "Australia/Sydney",
+      "Australia/Melbourne", "Pacific/Auckland", "Pacific/Fiji", "Pacific/Guam"]],
+  ];
+  const LANG_BY_CODE =Object.fromEntries(LANGS.map(([code, name, label]) => [code, { code, name, label }]));
+  const DISKS = [
+    { v: "/dev/nvme0n1", t: "NVMe · 512 GB", s: "Main disk (example)" },
+    { v: "/dev/sda", t: "SATA · 256 GB", s: "Secondary disk (example)" },
+  ];
+  const DESKS = [
+    { v: "Cinnamon", t: "Cinnamon", s: "Default, LightDM" },
+    { v: "Hyprland", t: "Hyprland", s: "Tiling Wayland, install later" },
+    { v: "KDE Plasma", t: "KDE Plasma", s: "Same as the old DeftOS build" },
+  ];
+  const GPU_DRIVERS = [
+    { v: "auto", t: "Auto-detect", s: "Pick the driver from the scanned GPU, like CachyOS" },
+    { v: "mesa", t: "Mesa (open-source)", s: "AMD and Intel" },
+    { v: "nvidia-open", t: "NVIDIA open kernel module", s: "Recent NVIDIA cards" },
+    { v: "none", t: "No extra driver", s: "Use the kernel's default driver" },
+  ];
+  // Auto-detect: map the scanned GPU name to a driver choice.
+  function autoGpuDriver() {
+    const name = ((HW.gpu && HW.gpu.name) || "").toLowerCase();
+    if (name.includes("nvidia")) return "nvidia-open";
+    if (name.includes("amd") || name.includes("radeon") || name.includes("intel")) return "mesa";
+    return "mesa";
+  }
+  function resolvedGpuDriver() { return state.gpuDriver === "auto" ? autoGpuDriver() : state.gpuDriver; }
+
+  const state = {
+    step: 0,
+    tz: "Asia/Ho_Chi_Minh",
+    lang: "en_US",
+    scanned: false,
+    hostname: "deftos",
+    user: "",
+    disk: "/dev/nvme0n1",
+    gpuDriver: "auto",
+    desktop: "Cinnamon",
+    kernel: "linux-deftos",
+    fallback: true,
+    btrfs: true,
+    snapshots: true,
+  };
+  const done = new Set();
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function renderRail() {
+    $("rail").innerHTML = STEPS.map((s, i) => {
+      const cls = i === state.step ? "step active" : done.has(i) ? "step done" : "step";
+      return `<button type="button" class="${cls}" data-i="${i}" ${i === state.step ? 'aria-current="step"' : ""}>
+        <span class="n">${i + 1}</span><span>${esc(s.name)}</span></button>`;
+    }).join("");
+    $("stepNo").textContent = (state.step + 1) + " / " + STEPS.length;
+  }
+
+  function scanHtml() {
+    const items = [
+      ["cpu", "CPU"], ["gpu", "GPU"], ["ram", "Memory"], ["disk", "Storage"],
+      ["firmware", "Firmware"], ["net", "Network"], ["virt", "Platform"],
+    ];
+    return `
+      <div class="label"><span>${IS_DEMO ? "Demo data" : "Live scan"}</span><b id="scanState">${state.scanned ? "DONE" : "SCANNING"}</b></div>
+      <div class="scan">${items.map(([k, label]) => {
+        const d = HW[k] || { name: "Unknown", detail: "" };
+        return `<div class="hw"><div class="k">${label}</div><div class="v">${esc(d.name)}</div><div class="d">${esc(d.detail)}</div></div>`;
+      }).join("")}</div>
+      <div class="bar" aria-hidden="true"><i id="scanBar"></i></div>
+      <div class="note">${state.scanned ? "Scan complete. Press Next to continue." : "Scanning, please wait."}</div>`;
+  }
+
+  function fieldsFor(id) {
+    if (id === "welcome") return `
+      <div class="grid2">
+        <label class="f">Language<select id="lang">${LANGS.map(([code, name, label]) =>
+          `<option value="${code}" ${code === state.lang ? "selected" : ""}>${esc(label)} · ${esc(name)}</option>`).join("")}
+        </select></label>
+        <label class="f">Timezone<select id="tz">${TZ_GROUPS.map(([region, zones]) =>
+          `<optgroup label="${esc(region)}">${zones.map(z =>
+            `<option value="${z}" ${z === state.tz ? "selected" : ""}>${esc(z)}</option>`).join("")}</optgroup>`).join("")}
+        </select></label>
+      </div>`;
+    if (id === "scan") return scanHtml();
+    if (id === "id") return `
+      <div class="grid2">
+        <label class="f">Hostname<input id="hostname" value="${esc(state.hostname)}" autocomplete="off" maxlength="32"></label>
+        <label class="f">Username<input id="user" value="${esc(state.user)}" autocomplete="username" placeholder="e.g. mae" maxlength="32"></label>
+      </div>`;
+    if (id === "disk") return `
+      <label class="f">Target disk<select id="disk">${DISKS.map(d => `<option value="${d.v}" ${d.v === state.disk ? "selected" : ""}>${esc(d.t)} · ${d.v}</option>`).join("")}</select></label>
+      <div class="note">The whole disk will be erased. Snapshots need btrfs, enabled in the Extras step.</div>`;
+    if (id === "drivers") return `
+      <div class="opts" role="radiogroup" aria-label="Graphics driver">${GPU_DRIVERS.map(d => `
+        <label class="opt"><input type="radio" name="gpu" value="${d.v}" ${d.v === state.gpuDriver ? "checked" : ""}>
+          <span class="t">${esc(d.t)}</span><span class="s">${esc(d.s)}</span></label>`).join("")}</div>
+      <div class="note">Detected GPU: ${esc((HW.gpu && HW.gpu.name) || "unknown")} → will use: <b>${esc(resolvedGpuDriver())}</b></div>`;
+    if (id === "desk") return `
+      <div class="opts" role="radiogroup" aria-label="Desktop">${DESKS.map(d => `
+        <label class="opt"><input type="radio" name="desk" value="${d.v}" ${d.v === state.desktop ? "checked" : ""}>
+          <span class="t">${esc(d.t)}</span><span class="s">${esc(d.s)}</span></label>`).join("")}</div>`;
+    if (id === "kern") return `
+      <div class="opts" role="radiogroup" aria-label="Kernel">
+        <label class="opt"><input type="radio" name="kern" value="linux-deftos" ${state.kernel === "linux-deftos" ? "checked" : ""}>
+          <span class="t">linux-deftos</span><span class="s">DeftOS kernel with its own configuration</span></label>
+        <label class="opt"><input type="radio" name="kern" value="linux-lts" ${state.kernel === "linux-lts" ? "checked" : ""}>
+          <span class="t">linux-lts</span><span class="s">Official LTS kernel</span></label>
+      </div>
+      <label class="f" style="margin-top:12px"><span style="display:flex;gap:8px;align-items:center;">
+        <input type="checkbox" id="fallback" ${state.fallback ? "checked" : ""} style="width:auto"> Keep the LTS kernel as a fallback</span></label>
+      <div class="tag" style="margin-top:12px">The DeftOS kernel is not in the official repos yet: enable the [deftos] repo first</div>`;
+    if (id === "extras") return `
+      <label class="f"><span style="display:flex;gap:8px;align-items:center;">
+        <input type="checkbox" id="btrfs" ${state.btrfs ? "checked" : ""} style="width:auto"> Use btrfs for root</span></label>
+      <label class="f" style="margin-top:10px"><span style="display:flex;gap:8px;align-items:center;">
+        <input type="checkbox" id="snapshots" ${state.snapshots ? "checked" : ""} style="width:auto"> Take a snapshot before upgrades</span></label>
+      <div class="note">Snapshots only work when root is btrfs. If btrfs is off, the snapshot option is dropped.</div>`;
+    return `<div class="note">Review the previous steps. If everything is correct, press Copy config on the right.</div>`;
+  }
+
+  function startScan() {
+    state.scanned = false;
+    let p = 0;
+    const timer = setInterval(() => {
+      p += 14;
+      const bar = $("scanBar"); if (bar) bar.style.width = Math.min(100, p) + "%";
+      if (p >= 100) {
+        clearInterval(timer);
+        state.scanned = true;
+        if (STEPS[state.step] && STEPS[state.step].id === "scan") renderStep();
+      }
+    }, 220);
+  }
+
+  function renderStep() {
+    const s = STEPS[state.step];
+    $("stepName").textContent = s.name;
+    $("stepTitle").textContent = s.title;
+    $("stepHint").textContent = s.hint;
+    $("fields").innerHTML = fieldsFor(s.id);
+    $("back").disabled = state.step === 0;
+    $("next").textContent = state.step === STEPS.length - 1 ? "Finish" : "Next";
+    $("next").disabled = s.id === "scan" && !state.scanned;
+    $("stepState").textContent = done.has(state.step) ? "CONFIRMED" : "EDITING";
+    $("err").textContent = "";
+    renderRail();
+    renderJson();
+    if (s.id === "scan" && !state.scanned) {
+      const bar = $("scanBar"); if (bar) bar.style.width = "0%";
+      startScan();
+    }
+  }
+
+  function readFields() {
+    const id = STEPS[state.step].id;
+    if (id === "welcome") { state.lang = $("lang").value; state.tz = $("tz").value; }
+    else if (id === "id") { state.hostname = $("hostname").value.trim(); state.user = $("user").value.trim(); }
+    else if (id === "disk") { state.disk = $("disk").value; }
+    else if (id === "drivers") { const c = document.querySelector('input[name="gpu"]:checked'); if (c) state.gpuDriver = c.value; }
+    else if (id === "desk") { const c = document.querySelector('input[name="desk"]:checked'); if (c) state.desktop = c.value; }
+    else if (id === "kern") { const c = document.querySelector('input[name="kern"]:checked'); if (c) state.kernel = c.value; const f = $("fallback"); if (f) state.fallback = f.checked; }
+    else if (id === "extras") { const b = $("btrfs"); if (b) state.btrfs = b.checked; const sn = $("snapshots"); if (sn) state.snapshots = sn.checked; }
+  }
+
+  function validate() {
+    const id = STEPS[state.step].id;
+    if (id === "id") {
+      if (!/^[a-z0-9-]{1,32}$/.test(state.hostname)) return "Hostname may contain only lowercase letters, digits and hyphens.";
+      if (!/^[a-z_][a-z0-9_-]{0,31}$/.test(state.user)) return "Enter a username: start with a lowercase letter, no spaces.";
+    }
+    if (id === "scan" && !state.scanned) return "Wait for the scan to finish.";
+    return "";
+  }
+
+  function config() {
+    const kernels = state.fallback && state.kernel !== "linux-lts" ? [state.kernel, "linux-lts"] : [state.kernel];
+    const profile = state.desktop === "Hyprland"
+      ? { main: "Window Manager", details: ["Hyprland"] }
+      : state.desktop === "KDE Plasma"
+        ? { main: "Desktop", details: ["KDE Plasma"] }
+        : { main: "Desktop", details: ["Cinnamon"] };
+    const fsType = state.btrfs ? "btrfs" : "ext4";
+    const cfg = {
+      "additional-repositories": ["multilib"],
+      "archinstall-language": (LANG_BY_CODE[state.lang] || LANG_BY_CODE.en_US).name,
+      "audio_config": { audio: "pipewire" },
+      "bootloader": "Grub",
+      "disk_config": { config_type: "default_layout", device_modifications: [{ device: state.disk, filesystem: fsType }] },
+      "hostname": state.hostname || "deftos",
+      "kernels": kernels,
+      "locale_config": { kb_layout: "us", sys_enc: "UTF-8", sys_lang: state.lang },
+      "network_config": { type: "nm" },
+      "ntp": true,
+      "profile_config": { gfx_driver: resolvedGpuDriver() === "none" ? "All open-source" : resolvedGpuDriver(), greeter: "lightdm-slick-greeter", profile: profile },
+      "swap": true,
+      "timezone": state.tz,
+      "users": state.user ? [{ username: state.user, sudo: true }] : [],
+      "version": "2.7.0",
+    };
+    if (state.snapshots && state.btrfs) cfg["deftos"] = { snapshots: { tool: "snapper", pre_upgrade: true } };
+    return cfg;
+  }
+
+  let lastText = "";
+  function renderJson() {
+    const err = validate();
+    const ok = !err && !!state.hostname && !!state.user;
+    lastText = JSON.stringify(config(), null, 2);
+    $("json").textContent = lastText;
+    $("valid").textContent = ok ? "VALID" : "NEEDS INPUT";
+    $("valid").style.color = ok ? "var(--accent)" : "var(--warn)";
+  }
+
+  $("form").addEventListener("input", () => { readFields(); renderJson(); });
+  $("form").addEventListener("change", () => { readFields(); renderJson(); });
+  $("form").addEventListener("submit", (e) => e.preventDefault());
+
+  $("next").addEventListener("click", () => {
+    readFields();
+    const err = validate();
+    if (err) { $("err").textContent = err; return; }
+    done.add(state.step);
+    if (state.step < STEPS.length - 1) { state.step++; renderStep(); }
+    else { $("err").textContent = "Done. Copy the configuration from the right-hand column."; renderRail(); }
+  });
+  $("back").addEventListener("click", () => { readFields(); if (state.step > 0) { state.step--; renderStep(); } });
+  $("rail").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-i]"); if (!b) return;
+    const i = +b.dataset.i;
+    const furthest = done.size ? Math.max(...done) : 0;
+    if (i <= furthest + 1) { readFields(); state.step = i; renderStep(); }
+  });
+
+  $("copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(lastText);
+      $("copy").textContent = "Copied";
+    } catch (_) {
+      const r = document.createRange(); r.selectNodeContents($("json"));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      $("copy").textContent = "Selected, press Ctrl+C";
+    }
+    setTimeout(() => { $("copy").textContent = "Copy config"; }, 2200);
+  });
+
+  renderStep();
+})();
+</script>
+</body>
+</html>
