@@ -215,10 +215,24 @@ button.btn:disabled { opacity: .4; cursor: not-allowed; }
     { v: "/dev/nvme0n1", t: "NVMe · 512 GB", s: "Main disk (example)" },
     { v: "/dev/sda", t: "SATA · 256 GB", s: "Secondary disk (example)" },
   ];
+  // archinstall profiles. "Desktop" = desktop environment, "Window Manager" = WM.
+  const DESK_ENVS = [
+    ["Cinnamon", "Default, LightDM"], ["KDE Plasma", "Full desktop, Plasma 6"], ["GNOME", "GNOME Shell"],
+    ["XFCE", "Light GTK desktop"], ["MATE", "Classic GNOME 2 style"], ["LXQt", "Lightweight Qt desktop"],
+    ["LXDE", "Very light GTK desktop"], ["Budgie", "Solus-style desktop"], ["Deepin", "Deepin desktop"],
+    ["Enlightenment", "Efl-based desktop"], ["Cosmic", "COSMIC desktop"],
+  ];
+  const DESK_WMS = [
+    ["Hyprland", "Dynamic tiling, Wayland"], ["Sway", "i3-compatible, Wayland"], ["niri", "Scrollable tiling, Wayland"],
+    ["labwc", "Openbox-like, Wayland"], ["i3", "Tiling, X11"], ["bspwm", "Binary space partition, X11"],
+    ["awesome", "Lua-configured, X11"], ["dwm", "Suckless, X11"], ["qtile", "Python-configured tiling"],
+    ["xmonad", "Haskell-configured tiling"], ["openbox", "Stacking, X11"], ["herbstluftwm", "Manual tiling, X11"],
+    ["leftwm", "Tiling, Rust"], ["Fluxbox", "Stacking, X11"], ["IceWM", "Lightweight stacking"],
+    ["Wayfire", "Compositor, Wayland"],
+  ];
   const DESKS = [
-    { v: "Cinnamon", t: "Cinnamon", s: "Default, LightDM" },
-    { v: "Hyprland", t: "Hyprland", s: "Tiling Wayland, install later" },
-    { v: "KDE Plasma", t: "KDE Plasma", s: "Same as the old DeftOS build" },
+    ...DESK_ENVS.map(([v, s]) => ({ v, t: v, s, kind: "Desktop" })),
+    ...DESK_WMS.map(([v, s]) => ({ v, t: v, s, kind: "Window Manager" })),
   ];
   const GPU_DRIVERS = [
     { v: "auto", t: "Auto-detect", s: "Pick the driver from the scanned GPU, like CachyOS" },
@@ -304,9 +318,14 @@ button.btn:disabled { opacity: .4; cursor: not-allowed; }
           <span class="t">${esc(d.t)}</span><span class="s">${esc(d.s)}</span></label>`).join("")}</div>
       <div class="note">Detected GPU: ${esc((HW.gpu && HW.gpu.name) || "unknown")} → will use: <b>${esc(resolvedGpuDriver())}</b></div>`;
     if (id === "desk") return `
-      <div class="opts" role="radiogroup" aria-label="Desktop">${DESKS.map(d => `
-        <label class="opt"><input type="radio" name="desk" value="${d.v}" ${d.v === state.desktop ? "checked" : ""}>
-          <span class="t">${esc(d.t)}</span><span class="s">${esc(d.s)}</span></label>`).join("")}</div>`;
+      <div class="label" style="margin-top:4px"><span>Desktop environments</span></div>
+      <div class="opts" role="radiogroup" aria-label="Desktop environments">${DESK_ENVS.map(([v, s]) => `
+        <label class="opt"><input type="radio" name="desk" value="${v}" ${v === state.desktop ? "checked" : ""}>
+          <span class="t">${esc(v)}</span><span class="s">${esc(s)}</span></label>`).join("")}</div>
+      <div class="label" style="margin-top:14px"><span>Window managers</span></div>
+      <div class="opts" role="radiogroup" aria-label="Window managers">${DESK_WMS.map(([v, s]) => `
+        <label class="opt"><input type="radio" name="desk" value="${v}" ${v === state.desktop ? "checked" : ""}>
+          <span class="t">${esc(v)}</span><span class="s">${esc(s)}</span></label>`).join("")}</div>`;
     if (id === "kern") return `
       <div class="opts" role="radiogroup" aria-label="Kernel">
         <label class="opt"><input type="radio" name="kern" value="linux-deftos" ${state.kernel === "linux-deftos" ? "checked" : ""}>
@@ -382,11 +401,8 @@ button.btn:disabled { opacity: .4; cursor: not-allowed; }
 
   function config() {
     const kernels = state.fallback && state.kernel !== "linux-lts" ? [state.kernel, "linux-lts"] : [state.kernel];
-    const profile = state.desktop === "Hyprland"
-      ? { main: "Window Manager", details: ["Hyprland"] }
-      : state.desktop === "KDE Plasma"
-        ? { main: "Desktop", details: ["KDE Plasma"] }
-        : { main: "Desktop", details: ["Cinnamon"] };
+    const isWm = DESK_WMS.some(([v]) => v === state.desktop);
+    const profile = { main: isWm ? "Window Manager" : "Desktop", details: [state.desktop] };
     const fsType = state.btrfs ? "btrfs" : "ext4";
     const cfg = {
       "additional-repositories": ["multilib"],
